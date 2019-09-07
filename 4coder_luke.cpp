@@ -16,8 +16,9 @@ constexpr int_color color_margin_insert = 0xFF5a3619;
 constexpr int_color color_margin_replace = 0xFF5a192e;
 constexpr int_color color_margin_visual = 0xFF722b04;
 
-START_HOOK_SIG(chronal_init) {
+START_HOOK_SIG(luke_init) {
     default_4coder_initialize(app);
+    exec_command(app, open_panel_vsplit);
     // NOTE(chr): Be sure to call the vim custom's hook!
     return vim_hook_init_func(app, files, file_count, flags, flag_count);
 }
@@ -57,9 +58,21 @@ void on_enter_visual_mode(struct Application_Links *app) {
     set_theme_colors(app, colors, ArrayCount(colors));
 }
 
-void chronal_get_bindings(Bind_Helper *context) {
+CUSTOM_COMMAND_SIG(close_open_bracket_curly)
+{
+    write_string(app, make_lit_string("{\n\n}"));
+    vim_move_up(app);
+}
+
+CUSTOM_COMMAND_SIG(close_open_bracket)
+{
+    write_string(app, make_lit_string("()"));
+    vim_move_left(app);
+}
+
+void luke_get_bindings(Bind_Helper *context) {
     // Set the hooks
-    set_start_hook(context, chronal_init);
+    set_start_hook(context, luke_init);
     set_open_file_hook(context, vim_hook_open_file_func);
     set_new_file_hook(context, vim_hook_new_file_func);
     set_render_caller(context, vim_render_caller);
@@ -75,6 +88,16 @@ void chronal_get_bindings(Bind_Helper *context) {
     // semicolon doesn't do much useful in vim by default, I bind it to the
     // same command that colon itself does.
     bind(context, ';', MDFR_NONE, status_command);
+    bind(context, 'j', MDFR_CTRL, vim_move_whitespace_down);
+    bind(context, 'k', MDFR_CTRL, vim_move_whitespace_up);
+    bind(context, 'L', MDFR_NONE, vim_move_end_of_line);
+    bind(context, 'H', MDFR_NONE, vim_move_beginning_of_line);
+    bind(context, 'z', MDFR_NONE, center_view);
+    end_map(context);
+
+    begin_map(context, mapid_insert);
+    bind(context, '{', MDFR_NONE, close_open_bracket_curly);
+    bind(context, '(', MDFR_NONE, close_open_bracket);
     end_map(context);
 
     // I can also define custom commands very simply:
@@ -97,7 +120,7 @@ get_bindings(void *data, int size) {
     Bind_Helper context_ = begin_bind_helper(data, size);
     Bind_Helper *context = &context_;
     
-    chronal_get_bindings(context);
+    luke_get_bindings(context);
     
     int result = end_bind_helper(context);
     return(result);
