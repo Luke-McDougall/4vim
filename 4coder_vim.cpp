@@ -2241,6 +2241,10 @@ void vim_get_bindings(Bind_Helper* context) {
     // Lister UI bindings
     // Have to improvise here because vim had no such thing and it's really weird
     // if you can't just type into it (ironically enough...)
+
+    // This causes crashes whenever you try to open a file. Instead of fixing it I
+    // just use the default 4coder bindings.
+    /*
     begin_map(context, default_lister_ui_map);
     bind_vanilla_keys(context, lister__write_character);
     bind(context, key_esc, MDFR_NONE, lister__quit);
@@ -2259,4 +2263,5 @@ void vim_get_bindings(Bind_Helper* context) {
     bind(context, key_mouse_move, MDFR_NONE, lister__repaint);
     bind(context, key_animate, MDFR_NONE, lister__repaint);
     end_map(context);
+    */
 }
