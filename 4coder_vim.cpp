@@ -1856,7 +1856,8 @@ RENDER_CALLER_SIG(vim_render_caller) {
         marker_visual_set_priority(app, visual, VisualPriority_Highest);
     }
     
-    // NOTE(allen): Cursor and mark
+
+// NOTE(allen): Cursor and mark
     Managed_Object cursor_and_mark = alloc_buffer_markers_on_buffer(app, buffer.buffer_id, 2, &render_scope);
     Marker cm_markers[2] = {};
     cm_markers[0].pos = view.cursor.pos;
@@ -1895,6 +1896,25 @@ RENDER_CALLER_SIG(vim_render_caller) {
         marker_visual_set_priority(app, visual, VisualPriority_Highest);
     }
     
+    // See if this will get me my sweet highlighted line
+    if (highlight_line_at_cursor && is_active_view){
+        Theme_Color color = {};
+        color.tag = Stag_Highlight_Cursor_Line;
+        get_theme_colors(app, &color, 1);
+        uint32_t line_color = color.color;
+        Marker_Visual visual = create_marker_visual(app, cursor_and_mark);
+        marker_visual_set_effect(app, visual, VisualType_LineHighlights,
+                                 line_color, 0, 0);
+        Marker_Visual_Take_Rule take_rule = {};
+        take_rule.first_index = 0;
+        take_rule.take_count_per_step = 1;
+        take_rule.step_stride_in_marker_count = 1;
+        take_rule.maximum_number_of_markers = 1;
+        marker_visual_set_take_rule(app, visual, take_rule);
+        marker_visual_set_priority(app, visual, VisualPriority_Highest);
+    }
+    //******************************************************************
+
     // NOTE(allen): Matching enclosure highlight setup
     static const int32_t color_count = 4;
     if (do_matching_enclosure_highlight){
@@ -1978,6 +1998,8 @@ void vim_get_bindings(Bind_Helper* context) {
     // They move the cursor around.
     // They're useful in a few different modes, so we have
     // them defined globally for other modes to inherit from.
+
+    default_keys(context);
     begin_map(context, mapid_movements);
     bind_vanilla_keys(context, cmdid_null);
 
@@ -2261,7 +2283,7 @@ void vim_get_bindings(Bind_Helper* context) {
     bind(context, key_mouse_left, MDFR_NONE, lister__mouse_press);
     bind(context, key_mouse_left_release, MDFR_NONE, lister__mouse_release);
     bind(context, key_mouse_move, MDFR_NONE, lister__repaint);
-    bind(context, key_animate, MDFR_NONE, lister__repaint);
+    bind(context, key_animate, MDFR_NONE, lister__repaint); 
     end_map(context);
     */
 }

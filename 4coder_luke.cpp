@@ -5,6 +5,9 @@
 // Sample usage of vim functions, from my own 4coder custom. 
 // Feel free to copy and tweak as you like!
 //=============================================================================
+#ifdef DEBUG
+#include <stdio.h>
+#endif
 
 #include "4coder_vim.cpp"
 
@@ -18,7 +21,7 @@ constexpr int_color color_margin_visual = 0xFF722b04;
 
 START_HOOK_SIG(luke_init) {
     default_4coder_initialize(app);
-    exec_command(app, open_panel_vsplit);
+    default_4coder_side_by_side_panels(app, files, file_count);
     // NOTE(chr): Be sure to call the vim custom's hook!
     return vim_hook_init_func(app, files, file_count, flags, flag_count);
 }
@@ -58,19 +61,72 @@ void on_enter_visual_mode(struct Application_Links *app) {
     set_theme_colors(app, colors, ArrayCount(colors));
 }
 
-CUSTOM_COMMAND_SIG(close_open_bracket_curly)
-{
-    write_string(app, make_lit_string("{\n\n}"));
-    vim_move_up(app);
-}
-
 CUSTOM_COMMAND_SIG(close_open_bracket)
 {
     write_string(app, make_lit_string("()"));
     vim_move_left(app);
 }
 
-void luke_get_bindings(Bind_Helper *context) {
+CUSTOM_COMMAND_SIG(close_open_bracket_square)
+{
+    write_string(app, make_lit_string("[]"));
+    vim_move_left(app);
+}
+
+CUSTOM_COMMAND_SIG(close_open_bracket_curly)
+{
+    write_string(app, make_lit_string("{\n\n}"));
+    vim_move_up(app);
+}
+
+CUSTOM_COMMAND_SIG(close_open_quote)
+{
+    write_string(app, make_lit_string("\"\""));
+    vim_move_left(app);
+}
+
+CUSTOM_COMMAND_SIG(search_and_center)
+{
+    vim_search(app);
+    center_view(app);
+}
+
+CUSTOM_COMMAND_SIG(search_and_center_next)
+{
+    vim_search_next(app);
+    center_view(app);
+}
+
+CUSTOM_COMMAND_SIG(search_and_center_prev)
+{
+    vim_search_prev(app);
+    center_view(app);
+}
+
+// Command for jumping to the end of common enclosing characters.
+CUSTOM_COMMAND_SIG(seek_next_closing)
+{
+    View_Summary view = get_active_view(app, AccessOpen);
+    if(!view.exists) {return;}
+    Buffer_Summary buffer = get_buffer(app, view.buffer_id, AccessOpen);
+
+    char cur;
+    int pos = view.cursor.pos;
+    int offset = 0;
+    while((offset + pos) < buffer.size && 0 < buffer.size)
+    {
+        buffer_read_range(app, &buffer, pos + offset, pos + offset + 1, &cur);
+if(cur == ')' || cur == '}' || cur == '"' || cur == ']' || cur == '"')
+        {
+            view_set_cursor(app, &view, seek_pos(pos + offset + 1), 1);
+            break;
+        }
+        ++offset;
+}
+}
+
+void luke_get_bindings(Bind_Helper *context) 
+{
     // Set the hooks
     set_start_hook(context, luke_init);
     set_open_file_hook(context, vim_hook_open_file_func);
@@ -93,11 +149,17 @@ void luke_get_bindings(Bind_Helper *context) {
     bind(context, 'L', MDFR_NONE, vim_move_end_of_line);
     bind(context, 'H', MDFR_NONE, vim_move_beginning_of_line);
     bind(context, 'z', MDFR_NONE, center_view);
+    bind(context, 'n', MDFR_NONE, search_and_center_next);
+    bind(context, 'N', MDFR_NONE, search_and_center_prev);
+    bind(context, '/', MDFR_NONE, search_and_center);
     end_map(context);
 
     begin_map(context, mapid_insert);
     bind(context, '{', MDFR_NONE, close_open_bracket_curly);
     bind(context, '(', MDFR_NONE, close_open_bracket);
+    bind(context, '[', MDFR_NONE, close_open_bracket_square);
+bind(context, '"', MDFR_NONE, close_open_quote);
+bind(context, 'j', MDFR_CTRL, seek_next_closing);
     end_map(context);
 
     // I can also define custom commands very simply:
