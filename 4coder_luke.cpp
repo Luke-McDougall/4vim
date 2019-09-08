@@ -112,17 +112,16 @@ CUSTOM_COMMAND_SIG(seek_next_closing)
 
     char cur;
     int pos = view.cursor.pos;
-    int offset = 0;
-    while((offset + pos) < buffer.size && 0 < buffer.size)
+    while(pos < buffer.size && 0 < buffer.size)
     {
-        buffer_read_range(app, &buffer, pos + offset, pos + offset + 1, &cur);
-if(cur == ')' || cur == '}' || cur == '"' || cur == ']' || cur == '"')
+        buffer_read_range(app, &buffer, pos, pos + 1, &cur);
+        if(cur == ')' || cur == '}' || cur == '"' || cur == ']' || cur == '"')
         {
-            view_set_cursor(app, &view, seek_pos(pos + offset + 1), 1);
+            view_set_cursor(app, &view, seek_pos(pos + 1), 1);
             break;
         }
-        ++offset;
-}
+        ++pos;
+    }
 }
 
 void luke_get_bindings(Bind_Helper *context) 
