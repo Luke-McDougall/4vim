@@ -61,6 +61,28 @@ void on_enter_visual_mode(struct Application_Links *app) {
     set_theme_colors(app, colors, ArrayCount(colors));
 }
 
+CUSTOM_COMMAND_SIG(curly_command_query)
+{
+    User_Input in;
+    in = get_user_input(app, EventOnAnyKey, EventOnEsc);
+    
+    if(in.key.keycode == '\n')
+    {
+        write_string(app, make_lit_string("{\n\n}"));
+        vim_move_up(app);
+    }
+    else if(in.key.keycode == '}')
+    {
+        write_string(app, make_lit_string("{}"));
+        vim_move_left(app);
+    }
+    else if(in.key.keycode == ';')
+    {
+        write_string(app, make_lit_string("{\n\n};"));
+        vim_move_up(app);
+    }
+}
+
 CUSTOM_COMMAND_SIG(close_open_bracket)
 {
     write_string(app, make_lit_string("()"));
@@ -71,12 +93,6 @@ CUSTOM_COMMAND_SIG(close_open_bracket_square)
 {
     write_string(app, make_lit_string("[]"));
     vim_move_left(app);
-}
-
-CUSTOM_COMMAND_SIG(close_open_bracket_curly)
-{
-    write_string(app, make_lit_string("{\n\n}"));
-    vim_move_up(app);
 }
 
 CUSTOM_COMMAND_SIG(close_open_quote)
@@ -109,7 +125,7 @@ CUSTOM_COMMAND_SIG(seek_next_closing)
     View_Summary view = get_active_view(app, AccessOpen);
     if(!view.exists) {return;}
     Buffer_Summary buffer = get_buffer(app, view.buffer_id, AccessOpen);
-
+    
     char cur;
     int pos = view.cursor.pos;
     while(pos < buffer.size && 0 < buffer.size)
@@ -131,13 +147,13 @@ void luke_get_bindings(Bind_Helper *context)
     set_open_file_hook(context, vim_hook_open_file_func);
     set_new_file_hook(context, vim_hook_new_file_func);
     set_render_caller(context, vim_render_caller);
-
+    
     // Call to set the vim bindings
     vim_get_bindings(context);
-
+    
     // Since keymaps are re-entrant, I can define my own keybindings below
     // here that will apply in the appropriate map:
-
+    
     begin_map(context, mapid_movements);
     // For example, I forget to hit shift a lot when typing commands. Since
     // semicolon doesn't do much useful in vim by default, I bind it to the
@@ -152,17 +168,17 @@ void luke_get_bindings(Bind_Helper *context)
     bind(context, 'N', MDFR_NONE, search_and_center_prev);
     bind(context, '/', MDFR_NONE, search_and_center);
     end_map(context);
-
+    
     begin_map(context, mapid_insert);
-    bind(context, '{', MDFR_NONE, close_open_bracket_curly);
+    bind(context, '{', MDFR_NONE, curly_command_query);
     bind(context, '(', MDFR_NONE, close_open_bracket);
     bind(context, '[', MDFR_NONE, close_open_bracket_square);
-bind(context, '"', MDFR_NONE, close_open_quote);
-bind(context, 'j', MDFR_CTRL, seek_next_closing);
+    bind(context, '"', MDFR_NONE, close_open_quote);
+    bind(context, 'j', MDFR_CTRL, seek_next_closing);
     end_map(context);
-
+    
     // I can also define custom commands very simply:
-
+    
     // As an example, suppose we want to be able to use 'save' to write the
     // current file:
     define_command(make_lit_string("save"), write_file);
@@ -171,7 +187,7 @@ bind(context, 'j', MDFR_CTRL, seek_next_closing);
     // been defined in the 4coder vim layer. If it were, this definition 
     // would be pointless, as :save would match as a substring of :saveas 
     // first.)
-
+    
     // TODO(chr): Make the statusbar commands more intelligent
     //  so that this isn't an issue.
 }
