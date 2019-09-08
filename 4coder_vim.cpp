@@ -1603,6 +1603,18 @@ void define_command(String command, Vim_Command_Func func) {
 VIM_COMMAND_FUNC_SIG(write_file) {
     View_Summary view = get_active_view(app, AccessProtected);
     Buffer_Summary buffer = get_buffer(app, view.buffer_id, AccessProtected);
+
+    // Hopefully this will add auto indenting on save
+    int32_t is_virtual = 0;
+    if (global_config.automatically_indent_text_on_save && buffer_get_setting(app, &buffer, BufferSetting_VirtualWhitespace, &is_virtual)){
+        if (is_virtual){
+            buffer_auto_indent(app, &global_part, &buffer, 0, buffer.size,DEF_TAB_WIDTH,
+            DEFAULT_INDENT_FLAGS |
+            AutoIndent_FullTokens);
+        }
+    }
+    //*****************************************************************
+
     if (argstr.str == NULL || argstr.size == 0) {
         save_buffer(app, &buffer, buffer.file_name, buffer.file_name_len, 0);
     } else {
