@@ -61,6 +61,29 @@ void on_enter_visual_mode(struct Application_Links *app) {
     set_theme_colors(app, colors, ArrayCount(colors));
 }
 
+// Leader key type thing. Add any other <leader><_> type commands to the switch statement.
+CUSTOM_COMMAND_SIG(leader_key_query)
+{
+    User_Input in;
+    
+    char c = get_user_input(app, EventOnAnyKey, EventOnEsc).key.keycode;
+    switch(c)
+    {
+        case ' ':
+        cycle_window_focus(app);
+        break;
+        
+        case 'v':
+        View_Summary view = get_active_view(app, AccessAll);
+        View_Summary new_view = open_view(app, &view, ViewSplit_Right);
+        new_view_settings(app, &new_view);
+        set_active_view(app, &new_view);
+        exec_command(app, interactive_open);
+        break;
+    }
+}
+
+// Auto completes an open curly brace in different ways depending on the next key pressed.
 CUSTOM_COMMAND_SIG(curly_command_query)
 {
     User_Input in;
@@ -83,6 +106,7 @@ CUSTOM_COMMAND_SIG(curly_command_query)
     }
 }
 
+// Basic auto complete stuff
 CUSTOM_COMMAND_SIG(close_open_bracket)
 {
     write_string(app, make_lit_string("()"));
@@ -101,6 +125,7 @@ CUSTOM_COMMAND_SIG(close_open_quote)
     vim_move_left(app);
 }
 
+// Center search results on the screen
 CUSTOM_COMMAND_SIG(search_and_center)
 {
     vim_search(app);
@@ -175,6 +200,10 @@ void luke_get_bindings(Bind_Helper *context)
     bind(context, '[', MDFR_NONE, close_open_bracket_square);
     bind(context, '"', MDFR_NONE, close_open_quote);
     bind(context, 'j', MDFR_CTRL, seek_next_closing);
+    end_map(context);
+    
+    begin_map(context, mapid_normal);
+    bind(context, ' ', MDFR_NONE, leader_key_query);
     end_map(context);
     
     // I can also define custom commands very simply:
