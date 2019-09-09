@@ -70,15 +70,22 @@ CUSTOM_COMMAND_SIG(leader_key_query)
     switch(c)
     {
         case ' ':
-        cycle_window_focus(app);
+        {
+            cycle_window_focus(app);
+        }
         break;
         
         case 'v':
-        View_Summary view = get_active_view(app, AccessAll);
-        View_Summary new_view = open_view(app, &view, ViewSplit_Right);
-        new_view_settings(app, &new_view);
-        set_active_view(app, &new_view);
-        exec_command(app, interactive_open);
+        {
+            cycle_window_focus(app);
+            exec_command(app, interactive_open);
+        }
+        break;
+        
+        case 'r':
+        {
+            reopen(app);
+        }
         break;
     }
 }
