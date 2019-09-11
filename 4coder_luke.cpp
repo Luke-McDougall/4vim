@@ -22,6 +22,7 @@ constexpr int_color color_margin_visual = 0xFF722b04;
 START_HOOK_SIG(luke_init) {
     default_4coder_initialize(app);
     default_4coder_side_by_side_panels(app, files, file_count);
+    change_theme(app, literal("Handmade Hero"));
     // NOTE(chr): Be sure to call the vim custom's hook!
     return vim_hook_init_func(app, files, file_count, flags, flag_count);
 }
@@ -64,10 +65,7 @@ void on_enter_visual_mode(struct Application_Links *app) {
 // Leader key type thing. Add any other <leader><_> type commands to the switch statement.
 CUSTOM_COMMAND_SIG(leader_key_query)
 {
-    User_Input in;
-    
-    char c = get_user_input(app, EventOnAnyKey, EventOnEsc).key.keycode;
-    switch(c)
+    switch(get_user_input(app, EventOnAnyKey, EventOnEsc).key.keycode)
     {
         case ' ':
         {
@@ -78,7 +76,7 @@ CUSTOM_COMMAND_SIG(leader_key_query)
         case 'v':
         {
             change_active_panel(app);
-            exec_command(app, interactive_open);
+            exec_command(app, interactive_open_or_new);
         }
         break;
         
@@ -93,23 +91,25 @@ CUSTOM_COMMAND_SIG(leader_key_query)
 // Auto completes an open curly brace in different ways depending on the next key pressed.
 CUSTOM_COMMAND_SIG(curly_command_query)
 {
-    User_Input in;
-    in = get_user_input(app, EventOnAnyKey, EventOnEsc);
-    
-    if(in.key.keycode == '\n')
+    switch(get_user_input(app, EventOnAnyKey, EventOnEsc).key.keycode)
     {
-        write_string(app, make_lit_string("{\n\n}"));
-        vim_move_up(app);
-    }
-    else if(in.key.keycode == '}')
-    {
-        write_string(app, make_lit_string("{}"));
-        vim_move_left(app);
-    }
-    else if(in.key.keycode == ';')
-    {
-        write_string(app, make_lit_string("{\n\n};"));
-        vim_move_up(app);
+        case '\n':
+        {
+            write_string(app, make_lit_string("{\n\n}"));
+            vim_move_up(app);
+        } break;
+        
+        case '}':
+        {
+            write_string(app, make_lit_string("{}"));
+            vim_move_left(app);
+        } break;
+        
+        case ';':
+        {
+            write_string(app, make_lit_string("{\n\n};"));
+            vim_move_up(app);
+        } break;
     }
 }
 
@@ -173,7 +173,6 @@ CUSTOM_COMMAND_SIG(search_and_center_prev)
 CUSTOM_COMMAND_SIG(seek_next_closing)
 {
     View_Summary view = get_active_view(app, AccessOpen);
-    if(!view.exists) {return;}
     Buffer_Summary buffer = get_buffer(app, view.buffer_id, AccessOpen);
     
     char cur;
