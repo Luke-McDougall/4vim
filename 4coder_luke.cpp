@@ -71,13 +71,13 @@ CUSTOM_COMMAND_SIG(leader_key_query)
     {
         case ' ':
         {
-            cycle_window_focus(app);
+            change_active_panel(app);
         }
         break;
         
         case 'v':
         {
-            cycle_window_focus(app);
+            change_active_panel(app);
             exec_command(app, interactive_open);
         }
         break;
@@ -130,6 +130,24 @@ CUSTOM_COMMAND_SIG(close_open_quote)
 {
     write_string(app, make_lit_string("\"\""));
     vim_move_left(app);
+}
+
+CUSTOM_COMMAND_SIG(system_clipboard_paste)
+{
+    View_Summary view = get_active_view(app, AccessOpen);
+    Buffer_Summary buffer = get_buffer(app, view.buffer_id, AccessOpen);
+    int pos = view.cursor.pos;
+    paste_from_register(app, &buffer, pos, &state.registers[1]);
+}
+
+CUSTOM_COMMAND_SIG(auto_todo)
+{
+    write_string(app, make_lit_string("// TODO(Luke): "));
+}
+
+CUSTOM_COMMAND_SIG(auto_note)
+{
+    write_string(app, make_lit_string("// NOTE(Luke): "));
 }
 
 // Center search results on the screen
@@ -207,10 +225,13 @@ void luke_get_bindings(Bind_Helper *context)
     bind(context, '[', MDFR_NONE, close_open_bracket_square);
     bind(context, '"', MDFR_NONE, close_open_quote);
     bind(context, 'j', MDFR_CTRL, seek_next_closing);
+    bind(context, 't', MDFR_CTRL, auto_todo);
+    bind(context, 'e', MDFR_CTRL, auto_note);
     end_map(context);
     
     begin_map(context, mapid_normal);
     bind(context, ' ', MDFR_NONE, leader_key_query);
+    bind(context, 'q', MDFR_NONE, system_clipboard_paste);
     end_map(context);
     
     // I can also define custom commands very simply:
