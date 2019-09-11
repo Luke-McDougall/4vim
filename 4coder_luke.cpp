@@ -190,6 +190,24 @@ CUSTOM_COMMAND_SIG(seek_next_closing)
     }
 }
 
+CUSTOM_COMMAND_SIG(visual_upper_case)
+{
+    View_Summary view = get_active_view(app, AccessOpen);
+    view_set_cursor(app, &view, seek_pos(state.selection_range.end), 1);
+    view_set_mark(app, &view, seek_pos(state.selection_range.start));
+    to_uppercase(app);
+    enter_normal_mode(app, view.buffer_id);
+}
+
+CUSTOM_COMMAND_SIG(visual_replace_in_range)
+{
+    View_Summary view = get_active_view(app, AccessOpen);
+    view_set_cursor(app, &view, seek_pos(state.selection_range.end), 1);
+    view_set_mark(app, &view, seek_pos(state.selection_range.start));
+    replace_in_range(app);
+    enter_normal_mode(app, view.buffer_id);
+}
+
 void luke_get_bindings(Bind_Helper *context) 
 {
     // Set the hooks
@@ -232,6 +250,11 @@ void luke_get_bindings(Bind_Helper *context)
     begin_map(context, mapid_normal);
     bind(context, ' ', MDFR_NONE, leader_key_query);
     bind(context, 'q', MDFR_NONE, system_clipboard_paste);
+    end_map(context);
+    
+    begin_map(context, mapid_visual);
+    bind(context, 's', MDFR_NONE, visual_replace_in_range);
+    bind(context, '~', MDFR_NONE, visual_upper_case);
     end_map(context);
     
     // I can also define custom commands very simply:
