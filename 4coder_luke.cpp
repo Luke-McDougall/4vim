@@ -9,7 +9,20 @@
 #include <stdio.h>
 #endif
 
+#include <stdlib.h>
 #include "4coder_vim.cpp"
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+
+#define internal static
 
 // These colors are tuned to work with the Dragonfire color scheme.
 // TODO(chr): How to best make this configurable? Can we query for arbitrary
@@ -60,6 +73,398 @@ void on_enter_visual_mode(struct Application_Links *app) {
         { Stag_Margin_Active, color_margin_visual },
     };
     set_theme_colors(app, colors, ArrayCount(colors));
+}
+
+typedef enum
+{
+    negative,
+    minus,
+    plus,
+    multiply,
+    divide,
+    open_bracket,
+    close_bracket,
+    constant
+} Type;
+
+typedef struct
+{
+    Type type;
+    double value;
+} Entry;
+
+typedef struct
+{
+    Entry *data;
+    u32 capacity;
+    u32 end;
+} Stack;
+
+internal Stack*
+new_stack(u32 capacity)
+{
+    Stack *s = NULL;
+    s = (Stack*)malloc(sizeof(Stack));
+    s->capacity = capacity;
+    s->data = (Entry*)malloc(sizeof(Entry) * capacity);
+    return s;
+}
+
+internal int
+push(Stack *s, Entry e)
+{
+    if(s && (s->end < s->capacity))
+    {
+        s->data[s->end] = e;
+        s->end++;
+        return 1;
+    }
+    return 0;
+}
+
+internal int
+pop(Stack *s, Entry *e)
+{
+    if(s && e)
+    {
+        if(s->end > 0)
+        {
+            *e = s->data[s->end - 1];
+            s->end--;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+internal int
+top(Stack *s, Entry *e)
+{
+    if(s && e)
+    {
+        if(s->end > 0)
+        {
+            *e = s->data[s->end - 1];
+            return 1;
+        }
+    }
+    return 0;
+}
+
+internal int
+get(Stack *s, Entry *e, u32 index)
+{
+    if((s && e) && (s->end > index))
+    {
+        *e = s->data[index];
+        return 1;
+    }
+    return 0;
+}
+
+internal void
+free_stack(Stack *s)
+{
+    if(s)
+    {
+        if(s->data)
+        {
+            free(s->data);
+        }
+        free(s);
+    }
+}
+
+internal bool
+precedence(Type t1, Type t2)
+{
+    if(t1 == negative) return true;
+    if((t1 == divide || t1 == multiply) && t2 != negative) return true;
+    if((t1 == plus || t1 == minus) && (t2 == plus && t2 == minus)) return true;
+    return false;
+}
+
+internal double
+operation(double r1, double r2, Type t)
+{
+    switch(t)
+    {
+        case plus:
+        return r1 + r2;
+        break;
+        
+        case minus:
+        return r1 - r2;
+        break;
+        
+        case multiply:
+        return r1 * r2;
+        break;
+        
+        case divide:
+        return r1 / r2;
+        break;
+        
+        case negative:
+        return -r1;
+        break;
+    }
+    return 0;
+}
+
+internal double
+solve_equation(char *equation, size_t length)
+{
+    Stack *infix = new_stack((u32) length);
+    u32 eqn_idx = 0;
+    char num_buf[128];
+    
+    while(eqn_idx < length)
+    {
+        char c = equation[eqn_idx++];
+        Entry e;
+        
+        if(c == '-' || c == '+' || c == '*' || c == '/' || c == '(' || c == ')')
+        {
+            switch(c)
+            {
+                case '-':
+                {
+                    if(top(infix, &e))
+                    {
+                        if(e.type != constant)
+                        {
+                            e.type = negative;
+                        }
+                        else
+                        {
+                            e.type = minus;
+                        }
+                    }
+                    else
+                    {
+                        e.type = negative;
+                    }
+                } break;
+                
+                case '+':
+                {
+                    e.type = plus;
+                } break;
+                
+                case '*':
+                {
+                    e.type = multiply;
+                } break;
+                
+                case '/':
+                {
+                    e.type = divide;
+                } break;
+                
+                case '(':
+                {
+                    e.type = open_bracket;
+                } break;
+                
+                case ')':
+                {
+                    e.type = close_bracket;
+                } break;
+            }
+            push(infix, e);
+        }
+        else if(c >= '0' && c <= '9')
+        {
+            u32 buf_idx = 0;
+            while((c >= '0' && c <= '9') || c == '.')
+            {
+                num_buf[buf_idx++] = c;
+                c = equation[eqn_idx++];
+            }
+            eqn_idx--;
+            
+            e.type = constant;
+            e.value = strtod(num_buf, NULL);
+            push(infix, e);
+            
+            for(int i = 0; i < buf_idx; i++)
+            {
+                num_buf[i] = 0;
+            }
+        }
+    }
+    
+    // Convert to postfix
+    
+    Stack *postfix = new_stack(infix->end);
+    Stack *op = new_stack(infix->end);
+    
+    for(int i = 0; i < infix->end; i++)
+    {
+        Entry e;
+        get(infix, &e, i);
+        
+        if(e.type == constant)
+        {
+            push(postfix, e);
+        }
+        else if(e.type == open_bracket)
+        {
+            push(op, e);
+        }
+        else if(e.type == close_bracket)
+        {
+            for(;;)
+            {
+                Entry o;
+                pop(op, &o);
+                if(o.type == open_bracket) break;
+                
+                // TODO(Luke): Implement proper input validation so I won't need this anymore
+                if(op->end <= 0) break;
+                
+                push(postfix, o);
+            }
+        }
+        else
+        {
+            if(op->end == 0)
+            {
+                push(op, e);
+            }
+            else
+            {
+                Entry o;
+                top(op, &o);
+                
+                if(o.type == open_bracket)
+                {
+                    push(op, e);
+                }
+                else
+                {
+                    if(precedence(o.type, e.type))
+                    {
+                        pop(op, &o);
+                        push(postfix, o);
+                        push(op, e);
+                    }
+                    else
+                    {
+                        push(op, e);
+                    }
+                }
+            }
+        }
+    }
+    
+    while(op->end > 0)
+    {
+        Entry o;
+        pop(op, &o);
+        push(postfix, o);
+    }
+    
+#ifdef DEBUG
+    FILE *f = fopen("quick_calc.debug.log", "a");
+    fprintf(f, "\nContents of postfix stack\n");
+    for(int i = 0; i < postfix->end; i++)
+    {
+        Entry e;
+        get(postfix, &e, i);
+        if(e.type == constant)
+        {
+            fprintf(f, "constant:%lf, ", e.value);
+        }
+        else
+        {
+            switch(e.type)
+            {
+                case plus:
+                fprintf(f, "plus, ");
+                break;
+                
+                case minus:
+                fprintf(f, "minus, ");
+                break;
+                
+                case multiply:
+                fprintf(f, "multiply, ");
+                break;
+                
+                case divide:
+                fprintf(f, "divide, ");
+                break;
+                
+                case negative:
+                fprintf(f, "negative, ");
+                break;
+            }
+        }
+    }
+    fclose(f);
+#endif
+    
+    Stack *constants = new_stack(postfix->end);
+    
+    for(int i = 0; i < postfix->end; i++)
+    {
+        Entry e;
+        get(postfix, &e, i);
+        
+        if(e.type == constant)
+        {
+            push(constants, e);
+        }
+        else
+        {
+            if(e.type == negative)
+            {
+                Entry r;
+                pop(constants, &r);
+                r.value = operation(r.value, 0, e.type);
+            }
+            else
+            {
+                double r1, r2;
+                Entry r;
+                pop(constants, &r);
+                r2 = r.value;
+                pop(constants, &r);
+                r1 = r.value;
+                r.value = operation(r1, r2, e.type);
+                push(constants, r);
+            }
+        }
+    }
+    Entry r;
+    pop(constants, &r);
+    double result = r.value;
+    free_stack(constants);
+    free_stack(postfix);
+    free_stack(op);
+    free_stack(infix);
+    return result;
+}
+
+CUSTOM_COMMAND_SIG(quick_calc)
+{
+    View_Summary view = get_active_view(app, AccessOpen);
+    Range range = get_view_range(&view);
+    
+    size_t length = range.max - range.min;
+    char *eqn = (char*)malloc(sizeof(char) * (length + 1));
+    
+    Buffer_Summary buffer = get_buffer(app, view.buffer_id, AccessOpen);
+    buffer_read_range(app, &buffer, range.min, range.max, eqn);
+    double result = solve_equation(eqn, length);
+    
+    char result_buffer[256];
+    int result_size = sprintf(result_buffer, "%f", result);
+    
+    buffer_replace_range(app, &buffer, range.min, range.max, result_buffer, result_size);
+    free(eqn);
 }
 
 // Leader key type thing. Add any other <leader><_> type commands to the switch statement.
@@ -137,7 +542,7 @@ CUSTOM_COMMAND_SIG(system_clipboard_paste)
     View_Summary view = get_active_view(app, AccessOpen);
     Buffer_Summary buffer = get_buffer(app, view.buffer_id, AccessOpen);
     int pos = view.cursor.pos;
-    paste_from_register(app, &buffer, pos, &state.registers[1]);
+    paste_from_register(app, &buffer, pos, &state.registers[reg_system_clipboard]);
 }
 
 CUSTOM_COMMAND_SIG(auto_todo)
@@ -249,6 +654,7 @@ void luke_get_bindings(Bind_Helper *context)
     begin_map(context, mapid_normal);
     bind(context, ' ', MDFR_NONE, leader_key_query);
     bind(context, 'q', MDFR_NONE, system_clipboard_paste);
+    bind(context, 's', MDFR_NONE, quick_calc);
     end_map(context);
     
     begin_map(context, mapid_visual);
