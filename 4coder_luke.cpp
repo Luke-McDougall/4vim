@@ -103,8 +103,7 @@ typedef struct
 internal Stack*
 new_stack(u32 capacity)
 {
-    Stack *s = NULL;
-    s = (Stack*)malloc(sizeof(Stack));
+    Stack *s = (Stack*)malloc(sizeof(Stack));
     s->capacity = capacity;
     s->data = (Entry*)malloc(sizeof(Entry) * capacity);
     return s;
@@ -122,15 +121,23 @@ push(Stack *s, Entry e)
     return 0;
 }
 
+// Pass NULL for the Entry pointer if you don't care about the value and just want to remove it from the stack.
 internal int
 pop(Stack *s, Entry *e)
 {
-    if(s && e)
+    if(s)
     {
         if(s->end > 0)
         {
-            *e = s->data[s->end - 1];
-            s->end--;
+            if(e == NULL)
+            {
+                s->end--;
+            }
+            else
+            {
+                *e = s->data[s->end - 1];
+                s->end--;
+            }
             return 1;
         }
     }
@@ -448,6 +455,8 @@ solve_equation(char *equation, size_t length)
     return result;
 }
 
+// This is basically a copy paste of the quick calc in 4coder_casey.cpp
+// I do the calculation differently though.
 CUSTOM_COMMAND_SIG(quick_calc)
 {
     View_Summary view = get_active_view(app, AccessOpen);
