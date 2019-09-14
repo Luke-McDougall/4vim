@@ -487,9 +487,24 @@ CUSTOM_COMMAND_SIG(leader_key_query)
         }
         break;
         
+        // Open file in other panel if one exists. If not opens a new panel and opens a file in it
         case 'v':
         {
-            change_active_panel(app);
+            View_Summary view = get_active_view(app, AccessAll);
+            View_Summary next_view = get_next_view_after_active(app, AccessAll);
+            View_ID original = view.view_id;
+            View_ID next = next_view.view_id;
+            
+            if(original == next)
+            {
+                View_Summary new_view = open_view(app, &view, ViewSplit_Right);
+                new_view_settings(app, &new_view);
+                view_set_buffer(app, &new_view, view.buffer_id, 0);
+            }
+            else
+            {
+                change_active_panel(app);
+            }
             exec_command(app, interactive_open_or_new);
         }
         break;
@@ -603,12 +618,54 @@ CUSTOM_COMMAND_SIG(seek_next_closing)
     }
 }
 
+CUSTOM_COMMAND_SIG(jump_under_cursor)
+{
+    View_Summary view = get_active_view(app, AccessAll);
+    Buffer_ID buffer_id = view.buffer_id;
+    Buffer_Summary buffer = get_buffer(app, buffer_id, AccessAll);
+    
+    Marker_List *list = get_or_make_list_for_buffer(app, &global_part, &global_heap, buffer_id);
+    
+    Temp_Memory temp = begin_temp_memory(&global_part);
+    i32 option_count = list->jump_count;
+    Managed_Object stored_jumps = list->jump_array;
+    for(i32 i = 0; i < option_count; i++)
+    {
+        Sticky_Jump_Stored stored = {};
+        managed_object_load_data(app, stored_jumps, i, 1, &stored);
+        String line = {};
+        read_line(app, &global_part, &buffer, stored.list_line, &line);
+        write_string(app, line);
+    }
+    end_temp_memory(temp);
+}
+
 CUSTOM_COMMAND_SIG(visual_upper_case)
 {
     View_Summary view = get_active_view(app, AccessOpen);
     view_set_cursor(app, &view, seek_pos(state.selection_range.end), 1);
     view_set_mark(app, &view, seek_pos(state.selection_range.start));
     to_uppercase(app);
+    enter_normal_mode(app, view.buffer_id);
+}
+
+CUSTOM_COMMAND_SIG(visual_place_in_scope)
+{
+    View_Summary view = get_active_view(app, AccessOpen);
+    view_set_cursor(app, &view, seek_pos(state.selection_range.end), 1);
+    view_set_mark(app, &view, seek_pos(state.selection_range.start));
+    place_in_scope(app);
+    enter_normal_mode(app, view.buffer_id);
+}
+
+CUSTOM_COMMAND_SIG(visual_surround_brackets)
+{
+    View_Summary view = get_active_view(app, AccessOpen);
+    view_set_cursor(app, &view, seek_pos(state.selection_range.end), 1);
+    view_set_mark(app, &view, seek_pos(state.selection_range.start));
+    write_string(app, make_lit_string(")"));
+    cursor_mark_swap(app);
+    write_string(app, make_lit_string("("));
     enter_normal_mode(app, view.buffer_id);
 }
 
@@ -664,11 +721,14 @@ void luke_get_bindings(Bind_Helper *context)
     bind(context, ' ', MDFR_NONE, leader_key_query);
     bind(context, 'q', MDFR_NONE, system_clipboard_paste);
     bind(context, 's', MDFR_NONE, quick_calc);
+    bind(context, '[', MDFR_NONE, jump_under_cursor);
     end_map(context);
     
     begin_map(context, mapid_visual);
     bind(context, 's', MDFR_NONE, visual_replace_in_range);
     bind(context, '~', MDFR_NONE, visual_upper_case);
+    bind(context, '{', MDFR_NONE, visual_place_in_scope);
+    bind(context, '(', MDFR_NONE, visual_surround_brackets);
     end_map(context);
     
     // I can also define custom commands very simply:
