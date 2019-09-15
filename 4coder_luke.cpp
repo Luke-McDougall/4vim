@@ -517,6 +517,27 @@ CUSTOM_COMMAND_SIG(leader_key_query)
     }
 }
 
+// Build commands
+CUSTOM_COMMAND_SIG(compile_project)
+{
+    View_Summary view = get_active_view(app, AccessAll);
+    View_Summary next_view = get_next_view_after_active(app, AccessAll);
+    View_ID original = view.view_id;
+    View_ID next = next_view.view_id;
+    
+    if(original == next)
+    {
+        View_Summary new_view = open_view(app, &view, ViewSplit_Right);
+        new_view_settings(app, &new_view);
+        view_set_buffer(app, &new_view, view.buffer_id, 0);
+    }
+    else
+    {
+        change_active_panel(app);
+    }
+    exec_project_command_by_index(app, 0);
+}
+
 // Auto completes an open curly brace in different ways depending on the next key pressed.
 CUSTOM_COMMAND_SIG(curly_command_query)
 {
@@ -721,7 +742,7 @@ void luke_get_bindings(Bind_Helper *context)
     bind(context, ' ', MDFR_NONE, leader_key_query);
     bind(context, 'q', MDFR_NONE, system_clipboard_paste);
     bind(context, 's', MDFR_NONE, quick_calc);
-    bind(context, '[', MDFR_NONE, jump_under_cursor);
+    bind(context, '1', MDFR_NONE, compile_project);
     end_map(context);
     
     begin_map(context, mapid_visual);
